@@ -1,0 +1,105 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+output: 
+  html_document:
+    keep_md: true
+---
+Setting global option to turn warnings off
+```{r}
+knitr::opts_chunk$set(warning=FALSE)
+```
+
+## Loading and preprocessing the data
+
+
+```{r echo = TRUE}
+activity <- read.csv("activity.csv")
+View(activity)
+
+activity$date <- as.POSIXct(activity$date, "%Y-%m-%d")
+weekday <- weekdays(activity$date)
+activity <- cbind(activity,weekday)
+summary(activity)
+```
+
+## What is mean total number of steps taken per day?
+```{r echo=TRUE}
+activity_totalsteps <- with(activity, aggregate(steps, by = list(date), FUN = sum, na.rm = TRUE))
+names(activity_totalsteps) <- c("date", "steps")
+hist(activity_totalsteps$steps, main = "Total number of steps taken per day", xlab = "Total steps taken per day", col = "darkblue", ylim = c(0,20), breaks = seq(0,25000, by=2500))
+```
+
+**The mean of the total number of steps taken per day:**
+```{r echo=TRUE}
+mean(activity_totalsteps$steps)
+```
+
+**The median of the total number of steps taken per day:**
+```{r echo=TRUE}
+median(activity_totalsteps$steps)
+```
+
+
+
+## What is the average daily activity pattern?
+```{r echo=TRUE}
+daily_activity <- aggregate(activity$steps, by=list(activity$interval), FUN=mean, na.rm=TRUE)
+names(daily_activity) <- c("interval", "mean")
+plot(daily_activity$interval, daily_activity$mean, type = "l", col="darkblue", lwd = 2, xlab="Interval", ylab="Average number of steps", main="Average number of steps per intervals")
+```
+
+```{r echo=TRUE}
+daily_activity[which.max(daily_activity$mean), ]$interval
+```
+
+
+
+## Imputing missing values
+
+```{r echo=TRUE}
+sum(is.na(activity$steps))
+```
+
+```{r echo=TRUE}
+steps <- daily_activity$mean[match(activity$interval, daily_activity$interval)]
+```
+
+```{r echo=TRUE}
+activity_imputed <- transform(activity, steps = ifelse(is.na(activity$steps), yes = steps, no = activity$steps))
+total_steps_imputed <- aggregate(steps ~ date, activity_imputed, sum)
+names(total_steps_imputed) <- c("date", "daily_steps")
+```
+
+```{r echo=TRUE}
+hist(total_steps_imputed$daily_steps, col = "darkblue", xlab = "Total steps per day", ylim = c(0,30), main = "Total number of steps taken each day", breaks = seq(0,25000,by=2500))
+```
+*The mean of the total number of steps taken per day:*
+```{r echo=TRUE}
+mean(total_steps_imputed$daily_steps)
+```
+*The median of the total number of steps taken per day:*
+```{r echo=TRUE}
+median(total_steps_imputed$daily_steps)
+```
+
+
+## Are there differences in activity patterns between weekdays and weekends?
+```{r echo=TRUE}
+activity$date <- as.Date(strptime(activity$date, format="%Y-%m-%d"))
+datetype <- sapply(activity$date, function(x) {
+        if (weekdays(x) == "Sábado" | weekdays(x) =="Domingo") 
+                {y <- "Weekend"} else 
+                {y <- "Weekday"}
+                y
+        })
+```
+
+```{r echo=TRUE}
+activity_by_date <- aggregate(steps~interval + datetype, data = activity, mean, na.rm = TRUE)
+library(ggplot2)
+plot<- ggplot(activity_by_date, aes(x = interval , y = steps, color = datetype)) +
+       geom_line() +
+       labs(title = "Average daily steps by type of date", x = "Interval", y = "Average number of steps") +
+       facet_wrap(~datetype, ncol = 1, nrow=2)
+print(plot)
+```
